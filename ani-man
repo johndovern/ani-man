@@ -1,0 +1,461 @@
+#!/usr/bin/env bash
+export BASE_DIR
+export CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/ani-man"
+export LOG_FILE="${CONFIG_DIR}/ani-man.log"
+
+export OPERATION
+export DEBUG
+export TRACK
+export TRACK_DIR
+export TRACK_CLEAN_DIR
+export TRACK_EP
+export PICK_EP
+export WATCH
+export WATCH_NUM
+export OPEN
+declare -a ANIME_TITLES
+declare -a ANIME_DIRS
+declare -a ANIME_EPS
+declare -a LIBRARY_DIRS
+declare -a LIBRARY_TITLES
+declare -a LIBRARY_EPS
+declare -a LOG_DIRS
+declare -a PICK_EPS
+declare -a FILTERS
+declare -a NEW_LOG
+declare -a OPTIONS
+
+active_create() {
+  while read -r DIR; do
+    AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+    send_prog -p "Auto:  " "DIR: ${DIR##"${BASE_DIR}"/}\nTITLE: ${AUTO_TITLE}"
+    TITLE="$(dmenu -i -p "Title for: ${DIR}:" <<<'')"
+    if [[ -n "${TITLE}" ]]; then
+      echo "${DIR##"${BASE_DIR}"/}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
+    else
+      DIR="${DIR##"${BASE_DIR}"/}"
+      echo "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
+    fi
+  done < <(printf '%s\n' "${ANIME_DIRS[@]}")
+}
+
+auto_create() {
+  for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
+    DIR="${ANIME_DIRS[${L}]##"${BASE_DIR}"/}"
+    TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+    echo "${DIR}<${TITLE}<" >> "${LIBRARY}"
+  done
+}
+
+active_update() {
+  L=0
+  while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
+    while IFS='<' read -r DIR TITLE EP; do
+      AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+      send_prog -p "Auto:  " "DIR: ${DIR##"${BASE_DIR}"/}\nTITLE: ${AUTO_TITLE}"
+      NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
+      if [[ -n "${NEW_TITLE}" ]]; then
+        printf '%s\n' "${DIR}<${NEW_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+      else
+        printf '%s\n' "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+      fi
+    done < <(printf '%s<%s<%s\n' "${ANIME_DIRS[${L}]}" "${ANIME_TITLES[${L}]}" "${ANIME_EPS[${L}]}")
+    L=$((L+1))
+  done
+}
+
+auto_update() {
+  for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
+    printf '%s\n' "${ANIME_DIRS[${L}]##"${BASE_DIR}"/}<${ANIME_TITLES[${L}]##*/}<${ANIME_EPS[${L}]}" >> "${LIBRARY}"
+  done
+}
+
+backup_library() {
+  export LIBRARY_BAK="${LIBRARY}.bak"
+  readonly LIBRARY_BAK
+  [[ -e "${LIBRARY_BAK}" ]] && rm "${LIBRARY_BAK}"
+  mv "${LIBRARY}" "${LIBRARY_BAK}"
+}
+
+build_library() {
+  while read -r DIR; do
+    if [[ "${FILTERS[*]}" =~ "${DIR##*/}" ]]; then
+      send_prog -e "Skipping" "${DIR##*/}"
+      continue
+    fi
+    [[ "${DIR}" == "${BASE_DIR}" ]] && continue
+    [[ -z "${DIR}" ]] && continue
+    send_prog -p "Adding" "${DIR##*/}"
+    ANIME_DIRS+=("${DIR}")
+  done < <(find "${BASE_DIR}" -type f | \
+    sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d;s/\(^.*\)\/.*$/\1/g' | \
+    sort -u)
+}
+
+check_ep() {
+  if [[ "${TRACK}" =~ "${BASE_DIR}" ]]; then
+    TRACK="${TRACK//${BASE_DIR}\//}"
+    TRACK_DIR="${TRACK%/*}"
+    TRACK_EP="${TRACK##*/}"
+    return 0
+  else
+    return 1
+  fi
+}
+
+compare_libraries() {
+  ANIME_DIRS=()
+  ANIME_TITLES=()
+  ANIME_EPS=()
+  while IFS='<' read -r DIR TITLE EP ; do
+    MATCH=0
+    while IFS='<' read -r DIR_B TITLE_B EP_B ; do
+      if [[ "${DIR}" == "${DIR_B}" ]]; then
+        ANIME_DIRS+=("${DIR_B}")
+        ANIME_TITLES+=("${TITLE_B}")
+        ANIME_EPS+=("${EP_B}")
+        MATCH=1
+        break
+      fi
+    done < "${LIBRARY_BAK}"
+    if [[ "${MATCH}" -eq 0 ]]; then
+        ANIME_DIRS+=("${DIR}")
+        ANIME_TITLES+=("${TITLE}")
+        ANIME_EPS+=("${EP}")
+    fi
+  done < "${LIBRARY}"
+}
+
+file_check() {
+  if [[ -e "${CONFIG_DIR}/anime.txt" ]]; then
+    export LIBRARY="${CONFIG_DIR}/anime.txt"
+  else
+    send_prog -p "Creating Library" "No library found\nCreating one now"
+    export LIBRARY="${CONFIG_DIR}/anime.txt"
+    touch "${LIBRARY}"
+  fi
+  [[ ! -e "${LOG_FILE}" ]] && touch "${LOG_FILE}"
+  if [[ -e "${CONFIG_DIR}/ani-man.conf" ]]; then
+    export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
+    source "${EXTERNAL_CONF}"
+  fi
+  if [[ -z "${BASE_DIR}" ]]; then
+    BASE_DIR="${XDG_DOCUMENTS_DIR:-${HOME}/Videos}/ani-man"
+    [[ ! -d "${BASE_DIR}" ]] && mkdir -p "${BASE_DIR}"
+  fi
+  readonly BASE_DIR LIBRARY LOG_FILE CONFIG_DIR EXTERNAL_CONF
+  return 0
+}
+
+find_ep() {
+  while IFS='<' read -r DIR TITLE EP ; do
+    if [[ -e "${BASE_DIR}/${DIR}/${TRACK##*/}" ]]; then
+      FOUND=1
+      TRACK="${DIR}/${TRACK##*/}"
+      TRACK_DIR="${TRACK%/*}"
+      TRACK_EP="${TRACK##*/}"
+      break
+    fi
+  done < "${LIBRARY}"
+  [[ "${FOUND}" -eq 1 ]] && return 0 || return 1
+}
+
+get_eps() {
+  while read -r EP ; do
+    PICK_EPS+=("${EP}")
+  done < <(find "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" -mindepth 1 -maxdepth 1 -type f -printf '%P\n' | sort)
+}
+
+get_library() {
+  L=0
+  while IFS='<' read -r DIR TITLE EP ; do
+    LIBRARY_DIRS+=("${DIR}")
+    LIBRARY_TITLES+=("$(printf '%03d: ' "${L}")${TITLE}")
+    LIBRARY_EPS+=("${EP}")
+    L=$((L+1))
+  done < "${LIBRARY}"
+}
+
+get_log_dirs() {
+  while IFS='<' read -r NUM DIR; do
+    LOG_DIRS+=("${DIR}")
+  done < "${LOG_FILE}"
+}
+
+get_log_titles() {
+  L=0
+  while read -r LOG_DIR ; do
+    while IFS='<' read -r DIR TITLE EP ; do
+      [[ ! "${LOG_DIR}" =~ "${DIR}" ]] && continue
+      LIBRARY_DIRS+=("${DIR}")
+      LIBRARY_TITLES+=("$(printf '%03d: ' "${L}")${TITLE}")
+      LIBRARY_EPS+=("${EP}")
+    done < "${LIBRARY}"
+    L=$((L+1))
+  done < <(printf '%s\n' "${LOG_DIRS[@]}")
+}
+
+get_opts() {
+  while :; do
+    if [[ $# -gt 0 ]]; then
+      case "$1" in
+        -b|--build)
+          OPERATION="BUILD"
+          shift
+          ;;
+        -B|--browse)
+          OPERATION="BROWSE"
+          shift
+          ;;
+        -c|--clean)
+          OPTIONS+=("CLEAN")
+          shift
+          ;;
+        -d|--debug)
+          DEBUG=1
+          shift
+          ;;
+        -h|--help)
+          usage
+          return 1
+          ;;
+        -i|--interactive)
+          OPTIONS+=("INTERACTIVE")
+          shift
+          ;;
+        -l|--latest)
+          OPERATION="WATCH_LATEST"
+          shift
+          ;;
+        -o|--open)
+          OPERATION="OPEN"
+          shift
+          if [[ -n "${1}" ]]; then
+            OPEN="${1}"
+            shift
+          else
+            usage
+            return 1
+          fi
+          ;;
+        -t|--track)
+          OPERATION="TRACK"
+          shift
+          TRACK="${1}"
+          shift
+          ;;
+        -u|--update)
+          OPERATION="UPDATE"
+          shift
+          ;;
+        -w|--watch)
+          OPERATION="WATCH"
+          shift
+          ;;
+        *)
+          printf 'Unknown option passed: %s\n' "$1" >&2
+          usage
+          return 1
+          ;;
+      esac
+    else
+      break
+    fi
+  done
+}
+
+opts_handler() {
+  case "${OPERATION}" in
+    BROWSE)
+      setsid -f ${FILE_MANAGER:?File manager not set} "${BASE_DIR}" >/dev/null 2>&1
+      ;;
+    BUILD)
+      build_library
+      if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
+        active_create
+      else
+        auto_create
+      fi
+      ;;
+    OPEN)
+      setsid -f mpv --script-opts=ani-man-enabled=yes "${OPEN}" >/dev/null 2>&1
+      ;;
+    TRACK)
+      if ! find_ep ; then
+        send_prog -e "Error: " "Could not find\n${TRACK##*/}\nin your library. \
+          Please update your library and try again"
+        return 1
+      fi
+      update_hist
+      update_log
+      ;;
+    UPDATE)
+      backup_library
+      build_library
+      auto_create
+      compare_libraries
+      rm "${LIBRARY}"
+      if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
+        active_update
+      else
+        auto_update
+      fi
+      [[ "${OPTIONS[*]}" =~ "CLEAN" ]] && rm "${LIBRARY_BAK}"
+      ;;
+    WATCH)
+      get_library
+      watch_anime
+      ;;
+    WATCH_LATEST)
+      get_log_dirs
+      get_log_titles
+      watch_anime
+      ;;
+  esac
+}
+
+send_prog() {
+  case "${DEBUG}" in
+    1)
+      case "$1" in
+        -e)
+          B="${R}"
+          shift
+          ;;
+        -p)
+          B="${G}"
+          shift
+          ;;
+        *)
+          echo "NO OPTION"
+          return 1
+          ;;
+      esac
+      echo -e "${B}${*}${E}"
+      ;;
+    *)
+      case "$1" in
+        -e)
+          shift
+          notify-send -u critical "$1" "$2"
+          ;;
+        -p)
+          shift
+          notify-send "$1" "$2"
+          ;;
+        *)
+          notify-send -u critical "Error" "No option given"
+          return 1
+          ;;
+      esac
+      ;;
+  esac
+}
+
+update_hist() {
+  TRACK_CLEAN_DIR="$(printf '%s' "${TRACK_DIR}" | sed 's/\[\|\]/\\&/g')"
+  sed -i "\>${TRACK_CLEAN_DIR}<> s>\(^.*<\).*\$>\1${TRACK_EP}>g" "${LIBRARY}"
+  sed -i "\>${TRACK_CLEAN_DIR}\$>d" "${LOG_FILE}"
+}
+
+update_log() {
+  L=1
+  while IFS='<' read -r NUM EP ; do
+    [[ "${NUM}" -eq "${MAX_HISTORY}" ]] && continue
+    NEW_LOG+=("$((L+1))<${EP}")
+    L=$((L+1))
+  done < "${LOG_FILE}"
+  printf '%s\n' "1<${TRACK_DIR}" > "${LOG_FILE}"
+  printf '%s\n' "${NEW_LOG[@]}" >> "${LOG_FILE}"
+}
+
+usage() {
+  cat << EOF
+  Usage: ani-man [OPTION]
+
+  Options:
+  -b, --build           Build the LIBRARY file. Use -i to build this file
+                        interactively.
+  -B, --browse          Browse your BASE_DIR. Set your file manager of choice
+                        in the ani-man.conf like so:
+                            FILE_MANAGER="st -e lf"
+                        TUI file managers like lf, nnn, ranger, etc. typically
+                        must be started in a terminal emulator.
+  -c, --clean           Use this flag with -u if you do not want to keep
+                        a backup of your library.
+  -d, --debug           The default behavior of this script is to send
+                        messages via notify-send. This is probably not what
+                        most people want but it's what I use so it is the
+                        default. Using this flag will send output to the
+                        terminal instead. If you want this to be the default
+                        behavior set DEBUG=1 in ani-man.conf.
+  -h, --help            Display this message and exit.
+  -i, --interactive     Use when building or updating your library.
+                        This will make the process interactive. By default
+                        ani-man tries to set the title of a dir to something
+                        sane. See the man page or github for more detailed info
+                        about this. If you prefer to set the title value
+                        yourself then use this flag. If run in a terminal you
+                        will see what the auto generated title would be if you
+                        do not enter anything into the dmenu prompt by pessing
+                        ESC.
+  -l, --latest          List your latest tracked anime to resume watching.
+  -o, --open [FILE]     This is a sort of wrapper for mpv which will also track
+                        the anime when closed.
+  -t, --track [FILE]    This will track the given FILE. It is best if the
+                        the given FILE is the full path to the file. If FILE is
+                        a relative path then ani-man will attempt to find this
+                        file in one of the dirs in your library. If this is not
+                        possible you will be informed. The most likely reason
+                        that this would happen is that the file is in a dir
+                        that has been filtered or it is a new dir that has not
+                        been added to your library. In this case update your
+                        library and attempt to track again. FILE should be a
+                        file somewhere in your BASE_DIR otherwise it will be
+                        impossible to track.
+  -u, --update          This will update your library file to match any new or
+                        renamed directories. If the directory name has not
+                        changed your tracked episodes will carry over. If this
+                        is not a new directory but one that has been renamed it
+                        will be treated as new and no episode tracking will be
+                        carried over.
+  -w, --watch           List all titles in your library. If the chosen title
+                        is being tracked then the last tracked episode will
+                        begin playing in mpv. This will also turn on tracking
+                        for ani-man.lua so when you close the video it will be
+                        recorded in your library and your history. If this is a
+                        title that has no tracked episode then a list of all
+                        episodes found in the title's dir will be listed for
+                        you to choose from.
+EOF
+}
+
+watch_anime() {
+  WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | dmenu -i -l 20 -p "Watch:")"
+  if [[ -n "${WATCH}" ]]; then
+    WATCH_NUM="${WATCH%%:*}"
+    WATCH_NUM="${WATCH_NUM##*0}"
+    if [[ -z "${LIBRARY_EPS[${WATCH_NUM}]}" ]]; then
+      get_eps
+      PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
+      [[ -z "${PICK_EP}" ]] && return 1
+      cd "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" || return 1
+      setsid -f mpv --script-opts=ani-man-enabled=yes "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}/${PICK_EP}" >/dev/null 2>&1
+    else
+      cd "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" || return 1
+      setsid -f mpv --script-opts=ani-man-enabled=yes "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}/${LIBRARY_EPS[${WATCH_NUM}]}" >/dev/null 2>&1
+    fi
+  fi
+}
+
+main() {
+  export R="\e[0;31m"
+  export G="\e[0;32m"
+  export E="\e[0m"
+
+  file_check || return 1
+  get_opts "${@}" || return 1
+  opts_handler || return 1
+}
+
+main "${@}" && exit 0 || exit 1
