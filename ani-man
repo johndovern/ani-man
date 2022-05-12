@@ -95,7 +95,7 @@ build_library() {
     [[ -z "${DIR}" ]] && continue
     send_prog -p "Adding" "${DIR##*/}"
     ANIME_DIRS+=("${DIR}")
-  done < <(find "${BASE_DIR}" -type f -printf '%P\n' | \
+  done < <(find -L "${BASE_DIR}" -type f -printf '%P\n' | \
     sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d;s/\(^.*\)\/.*$/\1/g' | \
     sort -u)
 }
@@ -155,7 +155,7 @@ find_ep() {
 get_eps() {
   while read -r EP ; do
     PICK_EPS+=("${EP}")
-  done < <(find "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" -mindepth 1 -maxdepth 1 -type f -printf '%P\n' | sort)
+  done < <(find -L "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" -mindepth 1 -maxdepth 1 -type f -printf '%P\n' | sort)
 }
 
 get_filters() {
