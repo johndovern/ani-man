@@ -325,7 +325,7 @@ super + a
   st -e ani-man -w
 ```
 
-This ensures thea ani-man is running in a terminal and that you will be able to respond to the fzf or read prompts.
+This ensures that ani-man is running in a terminal and that you will be able to respond to the fzf or read prompts.
 
 ### Browsing your BASE_DIR
 If you've set a `FILE_MANAGER` then you can run ani-man with the `-B, --browse` flag. This will open your `BASE_DIR` in your chosen FILE_MANAGER.
