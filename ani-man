@@ -13,6 +13,8 @@ export PICK_EP
 export WATCH
 export WATCH_NUM
 export OPEN
+export CLEAN_DIR
+export PROMPT_CMD
 declare -a ANIME_TITLES
 declare -a ANIME_DIRS
 declare -a ANIME_EPS
@@ -28,20 +30,21 @@ declare -a OPTIONS
 active_create() {
   while read -r DIR; do
     AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
-    send_prog -p "Auto:" "DIR: ${DIR##"${BASE_DIR}"/}\nTITLE: ${AUTO_TITLE}"
-    TITLE="$(dmenu -i -p "Title for: ${DIR}:" <<<'')"
+    DEBUG=1 send_prog -p "DIR: ${DIR}" "Auto title: ${AUTO_TITLE}"
+    [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title for: ${DIR}:" <<<'')"
+    [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " TITLE
     if [[ -n "${TITLE}" ]]; then
-      printf '%s\n' "${DIR##"${BASE_DIR}"/}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
+      printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     else
-      DIR="${DIR##"${BASE_DIR}"/}"
+      DIR="${DIR}"
       printf '%s\n' "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     fi
-  done < <(printf '%s\n' "${ANIME_DIRS[@]}")
+  done 3<&0 < <(printf '%s\n' "${ANIME_DIRS[@]}")
 }
 
 auto_create() {
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
-    DIR="${ANIME_DIRS[${L}]##"${BASE_DIR}"/}"
+    DIR="${ANIME_DIRS[${L}]}"
     TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
     printf '%s\n' "${DIR}<${TITLE}<" >> "${LIBRARY}"
   done
@@ -51,30 +54,32 @@ active_update() {
   L=0
   while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
     while IFS='<' read -r DIR TITLE EP; do
-      AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
-      send_prog -p "Auto:  " "DIR: ${DIR##"${BASE_DIR}"/}\nTITLE: ${AUTO_TITLE}"
-      NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
+      DEBUG=1 send_prog -p "DIR: ${DIR}" "Auto title: ${TITLE}"
+      [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
+      [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " NEW_TITLE
       if [[ -n "${NEW_TITLE}" ]]; then
         printf '%s\n' "${DIR}<${NEW_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
       else
-        printf '%s\n' "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+        printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
       fi
-    done < <(printf '%s<%s<%s\n' "${ANIME_DIRS[${L}]}" "${ANIME_TITLES[${L}]}" "${ANIME_EPS[${L}]}")
+    done 3<&0 < <(printf '%s<%s<%s\n' "${ANIME_DIRS[${L}]}" "${ANIME_TITLES[${L}]}" "${ANIME_EPS[${L}]}")
     L=$((L+1))
   done
 }
 
 auto_update() {
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
-    printf '%s\n' "${ANIME_DIRS[${L}]##"${BASE_DIR}"/}<${ANIME_TITLES[${L}]##*/}<${ANIME_EPS[${L}]}" >> "${LIBRARY}"
+    printf '%s\n' "${ANIME_DIRS[${L}]}<${ANIME_TITLES[${L}]##*/}<${ANIME_EPS[${L}]}" >> "${LIBRARY}"
   done
 }
 
 backup_library() {
   export LIBRARY_BAK="${LIBRARY}.bak"
+  export LIBRARY_LOOP="${LIBRARY}.loop"
   readonly LIBRARY_BAK
   [[ -e "${LIBRARY_BAK}" ]] && rm "${LIBRARY_BAK}"
   mv "${LIBRARY}" "${LIBRARY_BAK}"
+  cp "${LIBRARY_BAK}" "${LIBRARY_LOOP}"
 }
 
 build_library() {
@@ -84,23 +89,13 @@ build_library() {
       continue
     fi
     [[ "${DIR}" == "${BASE_DIR}" ]] && continue
+    [[ "${DIR}" =~ \< ]] && continue
     [[ -z "${DIR}" ]] && continue
     send_prog -p "Adding" "${DIR##*/}"
     ANIME_DIRS+=("${DIR}")
-  done < <(find "${BASE_DIR}" -type f | \
+  done < <(find "${BASE_DIR}" -type f -printf '%P\n' | \
     sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d;s/\(^.*\)\/.*$/\1/g' | \
     sort -u)
-}
-
-check_ep() {
-  if [[ "${TRACK}" =~ "${BASE_DIR}" ]]; then
-    TRACK="${TRACK//${BASE_DIR}\//}"
-    TRACK_DIR="${TRACK%/*}"
-    TRACK_EP="${TRACK##*/}"
-    return 0
-  else
-    return 1
-  fi
 }
 
 compare_libraries() {
@@ -115,9 +110,11 @@ compare_libraries() {
         ANIME_TITLES+=("${TITLE_B}")
         ANIME_EPS+=("${EP_B}")
         MATCH=1
+        CLEAN_DIR="$(printf '%s' "${DIR_B}" | sed 's/\[\|\]/\\&/g')"
         break
       fi
-    done < "${LIBRARY_BAK}"
+    done < "${LIBRARY_LOOP}"
+    [[ "${MATCH}" -eq 1 ]] && sed -i "\>${CLEAN_DIR}<>d" "${LIBRARY_LOOP}"
     if [[ "${MATCH}" -eq 0 ]]; then
         ANIME_DIRS+=("${DIR}")
         ANIME_TITLES+=("${TITLE}")
@@ -139,6 +136,7 @@ file_check() {
     export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
     source "${EXTERNAL_CONF}"
   fi
+  [[ ! "fzf dmenu" =~ "${PROMPT_CMD}" ]] && PROMPT_CMD="dmenu"
   if [[ -e "${CONFIG_DIR}/ani-man.filters" ]]; then
     while IFS='\n' read -r FILTER ; do
       FILTERS+=("${FILTER}")
@@ -243,6 +241,12 @@ get_opts() {
             return 1
           fi
           ;;
+        -s|--search)
+          OPERATION="SEARCH"
+          shift
+          TRACK="${1}"
+          shift
+          ;;
         -t|--track)
           OPERATION="TRACK"
           shift
@@ -285,6 +289,13 @@ opts_handler() {
     OPEN)
       setsid -f mpv --script-opts=ani-man-enabled=yes "${OPEN}" >/dev/null 2>&1
       ;;
+    SEARCH)
+      if find_ep ; then
+        return 0
+      else
+        return 1
+      fi
+      ;;
     TRACK)
       if ! find_ep ; then
         send_prog -e "Error:" "Could not find" "    ${TRACK##*/}" "in your library." \
@@ -299,7 +310,7 @@ opts_handler() {
       build_library
       auto_create
       compare_libraries
-      rm "${LIBRARY}"
+      rm "${LIBRARY}" "${LIBRARY_LOOP}"
       if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
         active_update
       else
@@ -442,13 +453,15 @@ EOF
 }
 
 watch_anime() {
-  WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | dmenu -i -l 20 -p "Watch:")"
+  [[ "${PROMPT_CMD}" =~ "dmenu" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | dmenu -i -l 20 -p "Watch:")"
+  [[ "${PROMPT_CMD}" =~ "fzf" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | fzf --prompt="Watch:")"
   if [[ -n "${WATCH}" ]]; then
     WATCH_NUM="${WATCH%%:*}"
     WATCH_NUM="${WATCH_NUM##*0}"
     if [[ -z "${LIBRARY_EPS[${WATCH_NUM}]}" ]]; then
       get_eps
-      PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
+      [[ "${PROMPT_CMD}" =~ "dmenu" ]] && PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
+      [[ "${PROMPT_CMD}" =~ "fzf" ]] && PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | fzf --prompt="Watch:")"
       [[ -z "${PICK_EP}" ]] && return 1
       cd "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" || return 1
       setsid -f mpv --script-opts=ani-man-enabled=yes "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}/${PICK_EP}" >/dev/null 2>&1
