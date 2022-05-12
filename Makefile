@@ -9,6 +9,7 @@ install:
 	echo "Installing ani-man.lua into $(TARGET_MPV)"
 	mkdir -p "$(TARGET_MPV)"
 	cp ./ani-man.lua "$(TARGET_MPV)"
-	echo "Installing ani-man.conf $(CONFIG_DIR)"
+	echo "Installing ani-man.conf and ani-man.filters into $(CONFIG_DIR)"
 	mkdir -p "$(CONFIG_DIR)"
 	cp ./ani-man.conf "$(CONFIG_DIR)"
+	cp ./ani-man.filters "$(CONFIG_DIR)"
