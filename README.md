@@ -1,34 +1,36 @@
 # ani-man
-Play, track, and browse your locally downloaded anime with this bash script.
+Track, play, and browse your locally downloaded anime with this bash script.
 
 ## Video demonstration & tl;dr
-Don't like to read? Checkout a [this]() video where I go installation, configuration, and use of ani-man.
+Don't like to read? Checkout a [this]() video where I go over installation, configuration, and use of ani-man.
 
 ## Why use ani-man?
 Good question.
 
-You've got plenty of ways to watch your anime. Popular options are jellyfin/plex. These are great applications, but for me they are totally overkill.
+You've got plenty of ways to watch and track your anime. Popular options are jellyfin or plex. These are great both applications, but for me they are totally overkill.
 
 My needs:
 
-  - 100% offline functionality
-  - 100% local tracking
-  - Flexible directory structure
-  - Track last watched episodes
-  - Track last watched shows
-  - Full mpv support
+  - [X] 100% offline functionality
+  - [X] 100% local tracking
+  - [X] Flexible directory structure
+  - [X] Track last watched episodes
+  - [X] Track last watched shows
+  - [X] Full mpv support
 
 I made ani-man to tick all of these boxes and it does just that in a simple way.
 
 ## Only for local files?
-Not necessarily. You can mount a remote directory using NFS, SSHFS, or SMB (what I use). I'm sure there are tons of other ways to mount remote file systems so that they are available on your local machine.
+Not necessarily. You can mount a remote filesystem using NFS, sshfs, or SMB (what I use). I'm sure there are tons of other ways to mount remote file systems so that they are available on your local machine.
 
 The only requirement is that you can cd into the directory that has the files you want to add to your library. If you can do that you can use ani-man to track and watch these videos.
 
 For those looking to stream anime you should checkout [ani-cli](https://github.com/pystardust/ani-cli) which allows you to browse and watch anime from the cli. Pretty neat stuff.
 
 ## Only for anime?
-Not at all. I wrote ani-man with this in mind but there is no reason you cannot use it to keep track of any other type of video library.
+Not at all. 
+
+I wrote ani-man with this in mind but there is no reason you cannot use it to keep track of any other type of video library.
 
 ## 100% local? 100% offline?
 Yep. But it doesn't have to be.
@@ -59,9 +61,9 @@ If these directories do not exist they will be created.
 Most importantly if `$HOME/.local/bin` is **not** in your `$PATH` please change that asap. Or edit the make file to install to a different location.
 
 ### Dependencies
-- GNU sed
+- sed
 - dmenu or fzf
-- GNU find
+- find
 - mpv
 - bash
 
@@ -74,7 +76,9 @@ Most importantly if `$HOME/.local/bin` is **not** in your `$PATH` please change 
 ### BASE_DIR
 After installing ani-man you'll want to configure ani-man.conf. The most
 important item to add to this file is the location of your `BASE_DIR`. This must
-be the full path to wherever you keep your anime. Example:
+be the full path to wherever you keep your anime. 
+
+Example:
 
 ```bash
 BASE_DIR="/mnt/sdc1/Videos/Anime"
@@ -95,7 +99,7 @@ PROMPT_CMD="fzf"
 If this variable is not set or spelt incorrectly then dmenu is assumed to be the desired prompt.
 
 ### FILE_MANAGER
-With ani-man you can browse your BASE_DIR with your file manager of choice. If you use lf and your terminal emulator is st you would set your the `FILE_MANAGER` variable like this:
+With ani-man you can browse your `BASE_DIR` with your file manager of choice. If you use lf and your terminal emulator is st you would set your the `FILE_MANAGER` variable like this:
 
 ```bash
 FILE_MANAGER="st -e lf"
@@ -123,7 +127,9 @@ You may not want ani-man to consider every directory with a [valid](https://gith
 
 The included filters file has some filters preset. These were all directories that I found no use to keep track of. You can remove or include whatever directories you like by simply writing the name of the directory in this file. The names will be split on newlines and tabs. Spaces are fine and you do not need to add quotes unless the directory you want to filter contains quotes.
 
-**Please note** that the filters only apply to individual directories themselves and not their subdirectories. If you have a filter for `Extras` any directory named `Extras` will be filtered. However, if `Extras/More-extras` exists and has valid files inside of it, ani-man will not filter it. In this case it sees `Extras/More-extras` as just the last directory `More-extras`. You would need a filter for `More-extras` in order to filter this directory as well.
+**Please note**: the filters only apply to individual directories themselves and not their subdirectories. 
+
+If you have a filter for `Extras` any directory named `Extras` will be filtered. However, if `Extras/More-extras` exists and has valid files inside of it, ani-man will not filter it. In this case ani-man sees `Extras/More-extras` as the last directory `More-extras`. You would need a filter for `More-extras` in order to filter this directory as well.
 
 I may look into optionally filtering subdirectories as well. However, my present attempts are ugly, and I am not confident in their reliability. I am happy to take suggestions for this; as well as, any optimizations or features anyone might have to suggest.
 
@@ -139,11 +145,9 @@ Open a terminal and run the following command:
 ani-man -b -d
 ```
 
-The `-d` flag is suggested as without it your notification deamon may be spammed.
+The `-d` flag is suggested as without it your notification daemon may be spammed.
 
 This will automatically build your library and set the title value for your shows. By default ani-man tries to set show titles to something sane. Read about the automatically generated titles [here](https://github.com/johndovern/ani-man#Automatically-generated-titles).
-
-With your library created you can now start watching your shows.
 
 ### Setting the title of a show interactively
 If you want to set the title yourself can use the `-i, --interactive` flag. If this is supplied you will be prompted via dmenu or a read prompt to set a shows title. You may set the title to almost any value you like.
@@ -183,13 +187,13 @@ ani-man -w
 You will be prompted with a list of all the titles in your library. Select one of the show titles and you will be given another prompt displaying all the episodes found for that show. Select an episode and watch some anime.
 
 ### Watching your last watched shows
-At this point ani-man is tracking the shows you watch in your library and history log. You can now run following command through through dmenu, a terminal, or via a hot-key:
+At this point ani-man is tracking the shows you watch in your library and history log. You can now run following command through dmenu, a terminal, or via a hot-key:
 
 ```bash
 ani-man -l
 ```
 
-With this you will see a dmenu or fzf prompt showing you the title's of your last watched shows. These shows are being tracked which means once you select one mpv will open and start playing your last watched episode.
+With this you will see a dmenu or fzf prompt showing you the titles of your last watched shows. These shows are being tracked which means once you select one mpv will open and start playing your last watched episode.
 
 It is advisable that you close mpv on the episode you wish to resume. You can also use `Q` instead of `q` to save and quit (an mpv native feature which has nothing to do with ani-man). Then you'll start off exactly where you left off.
 
@@ -198,7 +202,7 @@ You can always use `ani-man -w` to watch and track any show in your library. If 
 ## ani-man.lua
 The secret sauce of ani-man is the ani-man.lua script. This script can work in two ways:
 
-  1. Enable it by default via `script-opts/ani-man.conf` set
+  1. Enable it by default via `script-opts/ani-man.conf` by setting
 
       `enabled=yes`
 
@@ -223,7 +227,7 @@ If `enabled=yes` is set in `~/.config/mpv/script-opts/ani-man.conf` then ani-man
 There is really no downside to making this change, but I think it is better as an opt in setting rather than forcing this on you.
 
 ## Updating your library
-That's pretty much all there is to ani-man. You've set your `BASE_DIR`, your `PROMPT_CMD`, your `FILE_MANAGER`, your `MAX_HISTORY`, and your `FILTERS`. And you've built your library, and started taking advantage of ani-man's 100% local tracking of your anime. But of course you're still downloading more anime and saving it to your `BASE_DIR`. You run `ani-man -w` and what the !@$# your freshly downloaded anime isn't listed. What gives? Not to worry you've just got to update your library.
+That's pretty much all there is to ani-man. You've set your `BASE_DIR`, your `PROMPT_CMD`, your `FILE_MANAGER`, your `MAX_HISTORY`, and your `FILTERS`. You've built your library, and started taking advantage of ani-man's 100% local tracking. But of course you're still downloading more anime and saving it to your `BASE_DIR`. You run `ani-man -w` and what the !@$# your freshly downloaded anime isn't listed. What gives? Not to worry you've just got to update your library.
 
 To update your library just run `ani-man -u`. This will backup your current library in case you don't like how the update went. You can use the `-c, --clean` flag if you don't want to keep a backup.
 
@@ -231,7 +235,7 @@ When you update your library ani-man will do it's best to detect any shows that 
 
 If the shows directory has changed it will be treated as a new show and your show progress will be lost. I do not have any simple way around this and I do not consider this an issue.
 
-Any new shows will be automatically added with an automatically generated title.
+Any new shows will be added with an automatically generated title.
 
 ### Updating interactively
 If you wish to set the title yourself use the `-i, --interactive` flag. You should also use the `-d` flag and be sure to run ani-man in a terminal.
@@ -261,7 +265,7 @@ I mentioned earlier that only directories with valid file extensions are conside
   - swf
   - avchd
 
-You might be thinking "Wow, that's a lot of extensions! The find command must be very long." Well, you're half right. That is a lot of extensions but the _find_ command is very short ;).
+You might be thinking "Wow, that's a lot of extensions! The find command must be very long." Well, you're half right. That is a lot of extensions but the _find_ command is very short.
 
 #### How ani-man build's your library
 This is the command that ani-man uses to build your library:
@@ -289,18 +293,18 @@ I've mentioned these automatically generated titles a few times, but what the he
 
 ```bash
 $ DIR="[Commie] Space Dandy - Volume 6 [BD 720p AAC]"
-$ CLEAN_TITLE="$(printf '%s\n' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+$ CLEAN_TITLE="$(printf '%s\n' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
 $ printf '%s\n' "${CLEAN_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}"
 Space Dandy - Volume 6
 ```
 
 All the info that comes with a torrent is great but it doesn't look great. This it a pretty effective way of cleaning most directories and getting something that looks like a title.
 
-Here is another example of a larger torrent and how a longer file path with a subdirectory would look when cleaned:
+Here is another example. This is a larger torrent with a path that is two directories deep:
 
 ```bash
 $ DIR="[Anime Time] Little Busters! (S1+S2+S3+OVA) [BD][HEVC 10bit x265][AAC][Eng Sub]/Little Busters! Season 1"
-$ CLEAN_TITLE="$(printf '%s\n' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+$ CLEAN_TITLE="$(printf '%s\n' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
 $ printf '%s\n' "${CLEAN_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}"
 Little Busters- (S1-S2-S3-OVA) - Little Busters- Season 1
 ```
@@ -315,4 +319,4 @@ If you've set a `FILE_MANAGER` then you can run ani-man with the `-B, --browse` 
 ## Disclaimer
 This project is considered complete. The scope of features I set out to implement has been achieved. If you have a feature suggestion I will gladly hear and consider it. I may add new features but at present I can't think of anything I would add to this project. If anything I would like to strip it down more and make it more portable.
 
-I have done a limited amount of testing relative to the possible directory names an structures that ani-man may encounter. If you run into an error, my guess is that it has to do with sed, then please open an issue with as much relevant information as needed. I will do my best to come up with a solution or review any proposed solutions.
+I have done a limited amount of testing relative to the possible directory names and structures that ani-man may encounter. If you run into an error (my guess is that it has to do with sed) then please open an issue with as much relevant information as needed. I will do my best to come up with a solution or review any proposed solutions.
