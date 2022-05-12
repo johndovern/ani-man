@@ -28,13 +28,13 @@ declare -a OPTIONS
 active_create() {
   while read -r DIR; do
     AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
-    send_prog -p "Auto:  " "DIR: ${DIR##"${BASE_DIR}"/}\nTITLE: ${AUTO_TITLE}"
+    send_prog -p "Auto:" "DIR: ${DIR##"${BASE_DIR}"/}\nTITLE: ${AUTO_TITLE}"
     TITLE="$(dmenu -i -p "Title for: ${DIR}:" <<<'')"
     if [[ -n "${TITLE}" ]]; then
-      echo "${DIR##"${BASE_DIR}"/}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
+      printf '%s\n' "${DIR##"${BASE_DIR}"/}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     else
       DIR="${DIR##"${BASE_DIR}"/}"
-      echo "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
+      printf '%s\n' "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     fi
   done < <(printf '%s\n' "${ANIME_DIRS[@]}")
 }
@@ -43,7 +43,7 @@ auto_create() {
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
     DIR="${ANIME_DIRS[${L}]##"${BASE_DIR}"/}"
     TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
-    echo "${DIR}<${TITLE}<" >> "${LIBRARY}"
+    printf '%s\n' "${DIR}<${TITLE}<" >> "${LIBRARY}"
   done
 }
 
@@ -282,8 +282,8 @@ opts_handler() {
       ;;
     TRACK)
       if ! find_ep ; then
-        send_prog -e "Error: " "Could not find\n${TRACK##*/}\nin your library. \
-          Please update your library and try again"
+        send_prog -e "Error:" "Could not find" "    ${TRACK##*/}" "in your library." \
+          "Please update your library and try again"
         return 1
       fi
       update_hist
@@ -331,17 +331,23 @@ send_prog() {
           return 1
           ;;
       esac
-      echo -e "${B}${*}${E}"
+      FIRST="${1}"
+      shift
+      printf "${B}%s\n%s${E}\n" "${FIRST}" "${*}"
       ;;
     *)
       case "$1" in
         -e)
           shift
-          notify-send -u critical "$1" "$2"
+          FIRST="${1}"
+          shift
+          notify-send -u critical "${FIRST}" "${@}"
           ;;
         -p)
           shift
-          notify-send "$1" "$2"
+          FIRST="${1}"
+          shift
+          notify-send "${FIRST}" "$@"
           ;;
         *)
           notify-send -u critical "Error" "No option given"
