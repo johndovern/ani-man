@@ -2,6 +2,9 @@
 export BASE_DIR
 export CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/ani-man"
 export LOG_FILE="${CONFIG_DIR}/ani-man.log"
+export LIBRARY="${CONFIG_DIR}/anime.txt"
+export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
+export FILTERS_LIST="${CONFIG_DIR}/ani-man.filters"
 
 export OPERATION
 export DEBUG
@@ -29,14 +32,13 @@ declare -a OPTIONS
 
 active_create() {
   while read -r DIR; do
-    AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+    AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
     DEBUG=1 send_prog -p "DIR: ${DIR}" "Auto title: ${AUTO_TITLE}"
     [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title for: ${DIR}:" <<<'')"
     [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " TITLE
     if [[ -n "${TITLE}" ]]; then
       printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     else
-      DIR="${DIR}"
       printf '%s\n' "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     fi
   done 3<&0 < <(printf '%s\n' "${ANIME_DIRS[@]}")
@@ -45,7 +47,7 @@ active_create() {
 auto_create() {
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
     DIR="${ANIME_DIRS[${L}]}"
-    TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\[[^]]*\]\s\?//g')"
+    TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
     printf '%s\n' "${DIR}<${TITLE}<" >> "${LIBRARY}"
   done
 }
@@ -124,29 +126,16 @@ compare_libraries() {
 }
 
 file_check() {
-  if [[ -e "${CONFIG_DIR}/anime.txt" ]]; then
-    export LIBRARY="${CONFIG_DIR}/anime.txt"
-  else
-    send_prog -p "Creating Library" "No library found\nCreating one now"
-    export LIBRARY="${CONFIG_DIR}/anime.txt"
-    touch "${LIBRARY}"
-  fi
+  [[ ! -e "${LIBRARY}" ]] && touch "${LIBRARY}"
   [[ ! -e "${LOG_FILE}" ]] && touch "${LOG_FILE}"
-  if [[ -e "${CONFIG_DIR}/ani-man.conf" ]]; then
-    export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
-    source "${EXTERNAL_CONF}"
+  [[ -e "${EXTERNAL_CONF}" ]] && source "${EXTERNAL_CONF}"
+  if [[ -z "${BASE_DIR}" ]]; then
+    send_prog -e "Error" "You must set a BASE_DIR in ${EXTERNAL_CONF}"
+    return 1
   fi
   [[ ! "fzf dmenu" =~ "${PROMPT_CMD}" ]] && PROMPT_CMD="dmenu"
-  if [[ -e "${CONFIG_DIR}/ani-man.filters" ]]; then
-    while IFS='\n' read -r FILTER ; do
-      FILTERS+=("${FILTER}")
-    done < "${CONFIG_DIR}/ani-man.filters"
-  fi
-  if [[ -z "${BASE_DIR}" ]]; then
-    BASE_DIR="${XDG_DOCUMENTS_DIR:-${HOME}/Videos}/ani-man"
-    [[ ! -d "${BASE_DIR}" ]] && mkdir -p "${BASE_DIR}"
-  fi
-  readonly BASE_DIR LIBRARY LOG_FILE CONFIG_DIR EXTERNAL_CONF
+  [[ -e "${FILTERS_LIST}" ]] && get_filters
+  readonly BASE_DIR LIBRARY LOG_FILE CONFIG_DIR EXTERNAL_CONF FILTERS_LIST
   return 0
 }
 
@@ -167,6 +156,12 @@ get_eps() {
   while read -r EP ; do
     PICK_EPS+=("${EP}")
   done < <(find "${BASE_DIR}/${LIBRARY_DIRS[${WATCH_NUM}]}" -mindepth 1 -maxdepth 1 -type f -printf '%P\n' | sort)
+}
+
+get_filters() {
+  while IFS=$'\n' read -r FILTER ; do
+    FILTERS+=("${FILTER}")
+  done < "${CONFIG_DIR}/ani-man.filters"
 }
 
 get_library() {
@@ -349,7 +344,7 @@ send_prog() {
       esac
       FIRST="${1}"
       shift
-      printf "${B}%s\n%s${E}\n" "${FIRST}" "${*}"
+      printf "${B}%s${E}\n" "${FIRST}" "${*}"
       ;;
     *)
       case "$1" in
