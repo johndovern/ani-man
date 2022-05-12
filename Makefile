@@ -1,6 +1,6 @@
 TARGET_BIN=${HOME}/.local/bin
 TARGET_MPV=${HOME}/.config/mpv/scripts
-ALT_MPV=${HOME}/.config/mpv/scripts-opts
+ALT_MPV=${HOME}/.config/mpv/script-opts
 CONFIG_DIR=${HOME}/.config/ani-man
 
 install:
