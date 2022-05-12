@@ -28,7 +28,7 @@ The only requirement is that you can cd into the directory that has the files yo
 For those looking to stream anime you should checkout [ani-cli](https://github.com/pystardust/ani-cli) which allows you to browse and watch anime from the cli. Pretty neat stuff.
 
 ## Only for anime?
-Not at all. 
+Not at all.
 
 I wrote ani-man with this in mind but there is no reason you cannot use it to keep track of any other type of video library.
 
@@ -76,7 +76,7 @@ Most importantly if `$HOME/.local/bin` is **not** in your `$PATH` please change 
 ### BASE_DIR
 After installing ani-man you'll want to configure ani-man.conf. The most
 important item to add to this file is the location of your `BASE_DIR`. This must
-be the full path to wherever you keep your anime. 
+be the full path to wherever you keep your anime.
 
 Example:
 
@@ -127,7 +127,7 @@ You may not want ani-man to consider every directory with a [valid](https://gith
 
 The included filters file has some filters preset. These were all directories that I found no use to keep track of. You can remove or include whatever directories you like by simply writing the name of the directory in this file. The names will be split on newlines and tabs. Spaces are fine and you do not need to add quotes unless the directory you want to filter contains quotes.
 
-**Please note**: the filters only apply to individual directories themselves and not their subdirectories. 
+**Please note**: the filters only apply to individual directories themselves and not their subdirectories.
 
 If you have a filter for `Extras` any directory named `Extras` will be filtered. However, if `Extras/More-extras` exists and has valid files inside of it, ani-man will not filter it. In this case ani-man sees `Extras/More-extras` as the last directory `More-extras`. You would need a filter for `More-extras` in order to filter this directory as well.
 
@@ -185,6 +185,8 @@ ani-man -w
 ```
 
 You will be prompted with a list of all the titles in your library. Select one of the show titles and you will be given another prompt displaying all the episodes found for that show. Select an episode and watch some anime.
+
+Please see [this](https://github.com/johndovern/ani-man#Note-on-use-with-hot-keys) section for more info on starting ani-man via a hot-key or dmenu.
 
 ### Watching your last watched shows
 At this point ani-man is tracking the shows you watch in your library and history log. You can now run following command through dmenu, a terminal, or via a hot-key:
@@ -312,6 +314,18 @@ Little Busters- (S1-S2-S3-OVA) - Little Busters- Season 1
 The output isn't perfect, but boy does it happen fast and looks a whole lot better.
 
 When using ani-man if you use the `-i` flag when updating or building your library you will get a chance to see a preview of what the title will look like if you enter nothing. So you can make the call on what you want your anime titles to be.
+
+### Note on use with hot-keys
+I use sxhkd to start ani-man for most operations. I also use dmenu as my default prompt. If this is you then ani-man will "just work".
+
+If you use fzf you want to start ani-man with a hot-key you will need to make sure you do this within a terminal. I use st which means I would put this in my sxhkdrc:
+
+```bash
+super + a
+  st -e ani-man -w
+```
+
+This ensures thea ani-man is running in a terminal and that you will be able to respond to the fzf or read prompts.
 
 ### Browsing your BASE_DIR
 If you've set a `FILE_MANAGER` then you can run ani-man with the `-B, --browse` flag. This will open your `BASE_DIR` in your chosen FILE_MANAGER.
