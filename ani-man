@@ -139,6 +139,11 @@ file_check() {
     export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
     source "${EXTERNAL_CONF}"
   fi
+  if [[ -e "${CONFIG_DIR}/ani-man.filters" ]]; then
+    while IFS='\n' read -r FILTER ; do
+      FILTERS+=("${FILTER}")
+    done < "${CONFIG_DIR}/ani-man.filters"
+  fi
   if [[ -z "${BASE_DIR}" ]]; then
     BASE_DIR="${XDG_DOCUMENTS_DIR:-${HOME}/Videos}/ani-man"
     [[ ! -d "${BASE_DIR}" ]] && mkdir -p "${BASE_DIR}"
