@@ -48,7 +48,7 @@ auto_create() {
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
     DIR="${ANIME_DIRS[${L}]}"
     TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
-    printf '%s\n' "${DIR}<${TITLE}<" >> "${LIBRARY}"
+    printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
   done
 }
 
@@ -56,13 +56,17 @@ active_update() {
   L=0
   while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
     while IFS='<' read -r DIR TITLE EP; do
-      DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${TITLE}"
-      [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
-      [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " NEW_TITLE
-      if [[ -n "${NEW_TITLE}" ]]; then
-        printf '%s\n' "${DIR}<${NEW_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+      if [[ -z "${TITLE}" ]]; then
+        DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${TITLE}"
+        [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
+        [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " NEW_TITLE
+        if [[ -n "${NEW_TITLE}" ]]; then
+          printf '%s\n' "${DIR}<${NEW_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+        else
+          printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+        fi
       else
-        printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+        printf '%s\n' "${DIR}<${TITLE}<${EP}" >> "${LIBRARY}"
       fi
     done 3<&0 < <(printf '%s<%s<%s\n' "${ANIME_DIRS[${L}]}" "${ANIME_TITLES[${L}]}" "${ANIME_EPS[${L}]}")
     L=$((L+1))
@@ -71,7 +75,7 @@ active_update() {
 
 auto_update() {
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
-    printf '%s\n' "${ANIME_DIRS[${L}]}<${ANIME_TITLES[${L}]##*/}<${ANIME_EPS[${L}]}" >> "${LIBRARY}"
+    printf '%s\n' "${ANIME_DIRS[${L}]}<${ANIME_TITLES[${L}]}<${ANIME_EPS[${L}]}" >> "${LIBRARY}"
   done
 }
 
@@ -85,6 +89,7 @@ backup_library() {
 }
 
 build_library() {
+  [[ -e "${LIBRARY}" ]] && rm "${LIBRARY}"
   while read -r DIR; do
     if [[ "${FILTERS[*]}" =~ "${DIR##*/}" ]]; then
       send_prog -e "Skipping" "${DIR##*/}"
@@ -119,7 +124,9 @@ compare_libraries() {
     [[ "${MATCH}" -eq 1 ]] && sed -i "\>${CLEAN_DIR}<>d" "${LIBRARY_LOOP}"
     if [[ "${MATCH}" -eq 0 ]]; then
         ANIME_DIRS+=("${DIR}")
-        ANIME_TITLES+=("${TITLE}")
+        [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]] && \
+          ANIME_TITLES+=("") || \
+          ANIME_TITLES+=("${TITLE}")
         ANIME_EPS+=("${EP}")
     fi
   done < "${LIBRARY}"
