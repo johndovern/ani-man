@@ -57,9 +57,10 @@ active_update() {
   while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
     while IFS='<' read -r DIR TITLE EP; do
       if [[ -z "${TITLE}" ]]; then
+        TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
         DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${TITLE}"
-        [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
-        [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " NEW_TITLE
+        [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title:" <<<'')"
+        [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title: " NEW_TITLE
         if [[ -n "${NEW_TITLE}" ]]; then
           printf '%s\n' "${DIR}<${NEW_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
         else
@@ -97,10 +98,9 @@ build_library() {
     fi
     [[ "${DIR}" == "${BASE_DIR}" ]] && continue
     [[ "${DIR}" =~ \< ]] && continue
-    [[ -z "${DIR}" ]] && continue
     send_prog -p "Adding" "${DIR##*/}"
-    ANIME_DIRS+=("${DIR}")
-  done < <(find -L "${BASE_DIR}" -type f -printf '%P\n' | \
+    ANIME_DIRS+=("${DIR##"${BASE_DIR}"/}")
+  done < <(find -L "${BASE_DIR}" -type f | \
     sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d;s/\(^.*\)\/.*$/\1/g' | \
     sort -u)
 }
@@ -349,9 +349,7 @@ send_prog() {
           return 1
           ;;
       esac
-      FIRST="${1}"
-      shift
-      printf "${B}%s${E}\n" "${FIRST}" "${*}"
+      printf "${B}%s${E}\n" "${@}"
       ;;
     *)
       case "$1" in
