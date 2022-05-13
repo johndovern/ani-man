@@ -34,8 +34,8 @@ active_create() {
   while read -r DIR; do
     AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
     DEBUG=1 send_prog -p "DIR: ${DIR}" "Auto title: ${AUTO_TITLE}"
-    [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title for: ${DIR}:" <<<'')"
-    [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " TITLE
+    [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
+    [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title: " TITLE
     if [[ -n "${TITLE}" ]]; then
       printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
     else
@@ -56,7 +56,7 @@ active_update() {
   L=0
   while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
     while IFS='<' read -r DIR TITLE EP; do
-      DEBUG=1 send_prog -p "DIR: ${DIR}" "Auto title: ${TITLE}"
+      DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${TITLE}"
       [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title for: ${TITLE}:" <<<'')"
       [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title for: ${DIR}: " NEW_TITLE
       if [[ -n "${NEW_TITLE}" ]]; then
