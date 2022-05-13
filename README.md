@@ -2,7 +2,7 @@
 Track, play, and browse your locally downloaded anime with this bash script.
 
 ## Video demonstration & tl;dr
-Don't like to read? Checkout a [this]() video where I go over installation, configuration, and use of ani-man.
+Don't like to read? Checkout a [this](https://youtu.be/NeF56_JBagM) video where I go over installation, configuration, and use of ani-man.
 
 ## Why use ani-man?
 Good question.
