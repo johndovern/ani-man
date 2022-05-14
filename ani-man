@@ -456,8 +456,7 @@ watch_anime() {
   [[ "${PROMPT_CMD}" =~ "dmenu" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | dmenu -i -l 20 -p "Watch:")"
   [[ "${PROMPT_CMD}" =~ "fzf" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | fzf --prompt="Watch:")"
   if [[ -n "${WATCH}" ]]; then
-    WATCH_NUM="${WATCH%%:*}"
-    WATCH_NUM="${WATCH_NUM##*0}"
+    WATCH_NUM="$(printf '%s' "${WATCH}" | sed 's/^0*\(.*\):.*$/\1/g')"
     if [[ -z "${LIBRARY_EPS[${WATCH_NUM}]}" ]]; then
       get_eps
       [[ "${PROMPT_CMD}" =~ "dmenu" ]] && PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
