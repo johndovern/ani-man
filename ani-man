@@ -12,6 +12,7 @@ export TRACK
 export TRACK_DIR
 export TRACK_CLEAN_DIR
 export TRACK_EP
+export TRACK_CLEAN_EP
 export PICK_EP
 export WATCH
 export WATCH_NUM
@@ -117,7 +118,7 @@ compare_libraries() {
         ANIME_TITLES+=("${TITLE_B}")
         ANIME_EPS+=("${EP_B}")
         MATCH=1
-        CLEAN_DIR="$(printf '%s' "${DIR_B}" | sed 's/\[\|\]/\\&/g')"
+        CLEAN_DIR="$(printf '%s' "${DIR_B}" | sed 's/\[\|\]\|\&/\\&/g')"
         break
       fi
     done < "${LIBRARY_LOOP}"
@@ -375,8 +376,9 @@ send_prog() {
 }
 
 update_hist() {
-  TRACK_CLEAN_DIR="$(printf '%s' "${TRACK_DIR}" | sed 's/\[\|\]/\\&/g')"
-  sed -i "\>${TRACK_CLEAN_DIR}<> s>\(^.*<\).*\$>\1${TRACK_EP}>g" "${LIBRARY}"
+  TRACK_CLEAN_DIR="$(printf '%s' "${TRACK_DIR}" | sed 's/\[\|\]\|\&/\\&/g')"
+  TRACK_CLEAN_EP="$(printf '%s' "${TRACK_EP}" | sed 's/\[\|\]\|\&/\\&/g')"
+  sed -i "\>${TRACK_CLEAN_DIR}<> s>\(^.*<\).*\$>\1${TRACK_CLEAN_EP}>g" "${LIBRARY}"
   sed -i "\>${TRACK_CLEAN_DIR}\$>d" "${LOG_FILE}"
 }
 
