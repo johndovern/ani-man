@@ -150,11 +150,11 @@ file_check() {
 find_ep() {
   while IFS='<' read -r DIR TITLE EP ; do
     [[ ! -e "${BASE_DIR}/${DIR}/${TRACK##*/}" ]] && continue
-      FOUND=1
-      TRACK="${DIR}/${TRACK##*/}"
-      TRACK_DIR="${TRACK%/*}"
-      TRACK_EP="${TRACK##*/}"
-      break
+    FOUND=1
+    TRACK="${DIR}/${TRACK##*/}"
+    TRACK_DIR="${TRACK%/*}"
+    TRACK_EP="${TRACK##*/}"
+    break
   done < "${LIBRARY}"
   [[ "${FOUND}" -eq 1 ]] && return 0 || return 1
 }
