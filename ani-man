@@ -76,6 +76,7 @@ active_update() {
 }
 
 auto_update() {
+  send_prog -p "Auto updating library"
   for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
     printf '%s\n' "${ANIME_DIRS[${L}]}<${ANIME_TITLES[${L}]}<${ANIME_EPS[${L}]}" >> "${LIBRARY}"
   done
@@ -91,7 +92,13 @@ backup_library() {
 }
 
 build_library() {
-  [[ -e "${LIBRARY}" ]] && rm "${LIBRARY}"
+  if [[ -e "${LIBRARY}" ]]; then
+    [[ "${PROMPT_CMD}" =~ "dmenu" ]] && ANS="$(printf 'Yes\nNo' | dmenu -i -p "Remove Old Library? ")"
+    [[ "${PROMPT_CMD}" =~ "fzf" ]] && ANS="$(printf 'Yes\nNo' | fzf --prompt="Remove Old Library? ")"
+    [[ "${ANS}" == "Yes" ]] && rm "${LIBRARY}"
+    unset ANS
+  fi
+  send_prog -p "Building library"
   while read -r DIR; do
     if [[ "${FILTERS[*]}" =~ "${DIR##*/}" ]]; then
       send_prog -e "Skipping" "${DIR##*/}"
@@ -110,17 +117,17 @@ compare_libraries() {
   ANIME_DIRS=()
   ANIME_TITLES=()
   ANIME_EPS=()
+  send_prog -p "Comparing libraries"
   while IFS='<' read -r DIR TITLE EP ; do
     MATCH=0
     while IFS='<' read -r DIR_B TITLE_B EP_B ; do
-      if [[ "${DIR}" == "${DIR_B}" ]]; then
-        ANIME_DIRS+=("${DIR_B}")
-        ANIME_TITLES+=("${TITLE_B}")
-        ANIME_EPS+=("${EP_B}")
-        MATCH=1
-        CLEAN_DIR="$(printf '%s' "${DIR_B}" | sed 's/\[\|\]\|\&/\\&/g')"
-        break
-      fi
+      [[ "${DIR}" != "${DIR_B}" ]] && continue
+      ANIME_DIRS+=("${DIR_B}")
+      ANIME_TITLES+=("${TITLE_B}")
+      ANIME_EPS+=("${EP_B}")
+      MATCH=1
+      CLEAN_DIR="$(printf '%s' "${DIR_B}" | sed 's/\[\|\]\|\&/\\&/g')"
+      break
     done < "${LIBRARY_LOOP}"
     [[ "${MATCH}" -eq 1 ]] && sed -i "\>${CLEAN_DIR}<>d" "${LIBRARY_LOOP}"
     if [[ "${MATCH}" -eq 0 ]]; then
