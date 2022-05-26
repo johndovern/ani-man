@@ -95,7 +95,7 @@ build_library() {
   if [[ -e "${LIBRARY}" ]]; then
     [[ "${PROMPT_CMD}" =~ "dmenu" ]] && ANS="$(printf 'Yes\nNo' | dmenu -i -p "Remove Old Library? ")"
     [[ "${PROMPT_CMD}" =~ "fzf" ]] && ANS="$(printf 'Yes\nNo' | fzf --prompt="Remove Old Library? ")"
-    [[ "${ANS}" == "Yes" ]] && rm "${LIBRARY}"
+    [[ "${ANS}" == "Yes" ]] && rm "${LIBRARY}" || return 1
     unset ANS
   fi
   send_prog -p "Building library"
@@ -288,7 +288,7 @@ opts_handler() {
       setsid -f ${FILE_MANAGER:?File manager not set} "${BASE_DIR}" >/dev/null 2>&1
       ;;
     BUILD)
-      build_library
+      build_library || return 1
       if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
         active_create
       else
