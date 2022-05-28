@@ -198,7 +198,7 @@ get_log_titles() {
   L=0
   while read -r LOG_DIR ; do
     while IFS='<' read -r DIR TITLE EP ; do
-      [[ ! "${LOG_DIR}" =~ "${DIR}" ]] && continue
+      [[ ! "${LOG_DIR}" == "${DIR}" ]] && continue
       LIBRARY_DIRS+=("${DIR}")
       LIBRARY_TITLES+=("$(printf '%03d: ' "${L}")${TITLE}")
       LIBRARY_EPS+=("${EP}")
