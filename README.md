@@ -38,7 +38,7 @@ Yep. But it doesn't have to be.
 Feel free to setup `~/.config/ani-man` as a syncthing share and keep your library and progress synced accross your laptop(s) and desktop(s).
 
 ## Installation
-With make
+### Using make
 
 ```bash
 git clone "https://github.com/johndovern/ani-man"
@@ -58,7 +58,19 @@ ani-man.conf      ->    $HOME/.config/mpv/script-opts
 
 If these directories do not exist they will be created.
 
-Most importantly if `$HOME/.local/bin` is **not** in your `$PATH` please change that asap. Or edit the make file to install to a different location.
+Most importantly if `$HOME/.local/bin` is **not** in your `PATH` please change that asap. Or edit the make file to install to a different location.
+
+### Using [MPlug](https://github.com/Nudin/mplug)
+MPlug is plugin manager for mpv lua scripts. If you have mplug installed you can run
+
+```bash
+mplug install ani-man
+ani-man --setup
+```
+
+By default MPlug installs executable files like ani-man to `~/bin`. Please ensure this is in your `PATH` before running `ani-man --setup`.
+
+MPlug will install almost all the necessary files for ani-man. Using `ani-man --setup` will complete the installation process.
 
 ### Dependencies
 - sed
