@@ -448,6 +448,11 @@ usage() {
   -l, --latest          List your latest tracked anime to resume watching.
   -o, --open [FILE]     This is a sort of wrapper for mpv which will also track
                         the anime when closed.
+  -s, --search [FILE]   Take a file path and check if it is in your BASE_DIR.
+                        Returns 0 if successful or 1 if the file is not in in
+                        your BASE_DIR.
+  -S, --setup           If you installed ani-man via MPlug you want to use this
+                        flag post install. No need to run more than once.
   -t, --track [FILE]    This will track the given FILE. It is best if the
                         the given FILE is the full path to the file. If FILE is
                         a relative path then ani-man will attempt to find this
