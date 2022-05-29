@@ -41,7 +41,7 @@ Feel free to setup `~/.config/ani-man` as a syncthing share and keep your librar
 ### Using make
 
 ```bash
-git clone "https://github.com/johndovern/ani-man"
+git clone "https://github.com/johndovern/ani-man.git"
 cd ani-man
 make install
 ```
@@ -61,6 +61,10 @@ If these directories do not exist they will be created.
 Most importantly if `$HOME/.local/bin` is **not** in your `PATH` please change that asap. Or edit the make file to install to a different location.
 
 ### Using [MPlug](https://github.com/Nudin/mplug)
+Currently the [PR](https://github.com/Nudin/mpv-script-directory/pull/4) to include ani-man is not merged.
+
+These instructions are provided in anticipation of when it will be available via MPlug.
+
 MPlug is plugin manager for mpv lua scripts. If you have mplug installed you can run
 
 ```bash
