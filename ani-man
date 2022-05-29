@@ -141,6 +141,7 @@ compare_libraries() {
 }
 
 file_check() {
+  [[ "${OPERATION}" == "SETUP" ]] && return 0
   [[ ! -e "${LIBRARY}" ]] && touch "${LIBRARY}"
   [[ ! -e "${LOG_FILE}" ]] && touch "${LOG_FILE}"
   [[ -e "${EXTERNAL_CONF}" ]] && source "${EXTERNAL_CONF}"
@@ -256,6 +257,10 @@ get_opts() {
           TRACK="${1}"
           shift
           ;;
+        -S|--setup)
+          OPERATION="SETUP"
+          shift
+          ;;
         -t|--track)
           OPERATION="TRACK"
           shift
@@ -304,6 +309,9 @@ opts_handler() {
       else
         return 1
       fi
+      ;;
+    SETUP)
+      setup_files
       ;;
     TRACK)
       if ! find_ep ; then
@@ -379,6 +387,14 @@ send_prog() {
       esac
       ;;
   esac
+}
+
+setup_files() {
+  export MPLUG_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/mplug/github/johndovern/ani-man"
+  [[ ! -d "${MPLUG_DIR}" ]] && usage && return 1
+  [[ ! -d "${CONFIG_DIR}" ]] && mkdir -p "${CONFIG_DIR}"
+  cp "${MPLUG_DIR}/conf/bash/ani-man"* "${CONFIG_DIR}"
+  DEBUG=1 send_prog -p "Please see" "    https://github.com/johndovern/ani-man" "for additional setup instructions."
 }
 
 update_hist() {
@@ -484,8 +500,8 @@ main() {
   export G="\e[0;32m"
   export E="\e[0m"
 
-  file_check || return 1
   get_opts "${@}" || return 1
+  file_check || return 1
   opts_handler || return 1
 }
 
