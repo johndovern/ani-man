@@ -51,21 +51,21 @@ auto_create() {
 }
 
 active_update() {
-  L=0
-  while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
-    while IFS='<' read -r DIR TITLE EP; do
-      if [[ -z "${TITLE}" ]]; then
-        AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
-        DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${AUTO_TITLE}"
-        [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
-        [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title: " TITLE
-        [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
-          printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
-      else
-        printf '%s\n' "${DIR}<${TITLE}<${EP}" >> "${LIBRARY}"
-      fi
-    done 3<&0 < <(printf '%s<%s<%s\n' "${ANIME_DIRS[${L}]}" "${ANIME_TITLES[${L}]}" "${ANIME_EPS[${L}]}")
-    L=$((L+1))
+  send_prog -p "Updating library"
+  for (( L=0 ; "${L}" < "${#ANIME_DIRS[@]}" ; L++ )) ; do
+    DIR="${ANIME_DIRS[${L}]}"
+    TITLE="${ANIME_TITLES[${L}]}"
+    EP="${ANIME_EPS[${L}]}"
+    if [[ -z "${TITLE}" ]]; then
+      AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
+      DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${AUTO_TITLE}"
+      [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
+      [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -p "Title: " TITLE
+      [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
+        printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
+    else
+      printf '%s\n' "${DIR}<${TITLE}<${EP}" >> "${LIBRARY}"
+    fi
   done
 }
 
@@ -136,7 +136,6 @@ compare_libraries() {
 
 file_check() {
   [[ "${OPERATION}" == "SETUP" ]] && return 0
-  [[ ! -e "${LIBRARY}" ]] && touch "${LIBRARY}"
   [[ ! -e "${LOG_FILE}" ]] && touch "${LOG_FILE}"
   [[ -e "${EXTERNAL_CONF}" ]] && source "${EXTERNAL_CONF}"
   if [[ -z "${BASE_DIR}" ]]; then
@@ -298,11 +297,7 @@ opts_handler() {
       setsid -f mpv --script-opts=ani-man-enabled=yes "${OPEN}" >/dev/null 2>&1
       ;;
     SEARCH)
-      if find_ep ; then
-        return 0
-      else
-        return 1
-      fi
+      find_ep && return 0 || return 1
       ;;
     SETUP)
       setup_files
@@ -318,7 +313,7 @@ opts_handler() {
       ;;
     UPDATE)
       backup_library
-      build_library
+      build_library >/dev/null 2>&1
       auto_create
       compare_libraries
       rm "${LIBRARY}" "${LIBRARY_LOOP}"
