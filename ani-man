@@ -37,11 +37,8 @@ active_create() {
     DEBUG=1 send_prog -p "DIR: ${DIR}" "Auto title: ${AUTO_TITLE}"
     [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
     [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title: " TITLE
-    if [[ -n "${TITLE}" ]]; then
-      printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
-    else
-      printf '%s\n' "${DIR}<${AUTO_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
-    fi
+    [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
+    printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
   done 3<&0 < <(printf '%s\n' "${ANIME_DIRS[@]}")
 }
 
@@ -58,15 +55,12 @@ active_update() {
   while [[ "${L}" -ne "${#ANIME_DIRS[@]}" ]]; do
     while IFS='<' read -r DIR TITLE EP; do
       if [[ -z "${TITLE}" ]]; then
-        TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
-        DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${TITLE}"
-        [[ "${PROMPT_CMD}" =~ "dmenu" ]] && NEW_TITLE="$(dmenu -i -p "Title:" <<<'')"
-        [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title: " NEW_TITLE
-        if [[ -n "${NEW_TITLE}" ]]; then
-          printf '%s\n' "${DIR}<${NEW_TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
-        else
+        AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
+        DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${AUTO_TITLE}"
+        [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
+        [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -u 3 -p "Title: " TITLE
+        [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
           printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
-        fi
       else
         printf '%s\n' "${DIR}<${TITLE}<${EP}" >> "${LIBRARY}"
       fi
