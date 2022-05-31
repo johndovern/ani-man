@@ -6,31 +6,6 @@ export LIBRARY="${CONFIG_DIR}/anime.txt"
 export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
 export FILTERS_LIST="${CONFIG_DIR}/ani-man.filters"
 
-export OPERATION
-export DEBUG
-export TRACK
-export TRACK_DIR
-export TRACK_CLEAN_DIR
-export TRACK_EP
-export TRACK_CLEAN_EP
-export PICK_EP
-export WATCH
-export WATCH_NUM
-export OPEN
-export CLEAN_DIR
-export PROMPT_CMD
-declare -a ANIME_TITLES
-declare -a ANIME_DIRS
-declare -a ANIME_EPS
-declare -a LIBRARY_DIRS
-declare -a LIBRARY_TITLES
-declare -a LIBRARY_EPS
-declare -a LOG_DIRS
-declare -a PICK_EPS
-declare -a FILTERS
-declare -a NEW_LOG
-declare -a OPTIONS
-
 active_create() {
   while read -r DIR; do
     AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
@@ -100,6 +75,7 @@ build_library() {
     fi
     [[ "${DIR}" == "${BASE_DIR}" ]] && continue
     [[ "${DIR}" =~ \< ]] && continue
+    [[ "${RECURSIVE}" -eq 1 ]] && recursive_filter "${DIR}" && continue
     send_prog -p "Adding" "${DIR##*/}"
     ANIME_DIRS+=("${DIR##"${BASE_DIR}"/}")
   done < <(find -L "${BASE_DIR}" -type f | \
@@ -152,8 +128,7 @@ find_ep() {
   while IFS='<' read -r DIR TITLE EP ; do
     [[ ! -e "${BASE_DIR}/${DIR}/${TRACK##*/}" ]] && continue
     FOUND=1
-    TRACK="${DIR}/${TRACK##*/}"
-    TRACK_DIR="${TRACK%/*}"
+    TRACK_DIR="${DIR}"
     TRACK_EP="${TRACK##*/}"
     break
   done < "${LIBRARY}"
@@ -309,7 +284,7 @@ opts_handler() {
         return 1
       fi
       update_hist
-      update_log
+      [[ "${MAX_HISTORY}" -ne 0 ]] && update_log
       ;;
     UPDATE)
       backup_library
@@ -334,6 +309,15 @@ opts_handler() {
       watch_anime
       ;;
   esac
+}
+
+recursive_filter() {
+  SKIP=0
+  while IFS="" read -r FILTER ; do
+    [[ "${1}" =~ "/${FILTER}/" ]] && SKIP=1 && break
+  done < <(printf '%s\n' "${FILTERS[@]}")
+  [[ "${SKIP}" -eq 1 ]] && send_prog -e "Skipping" "${1##${BASE_DIR}/}" && return 0
+  [[ "${SKIP}" -eq 0 ]] && return 1
 }
 
 send_prog() {
