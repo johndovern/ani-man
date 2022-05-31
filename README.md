@@ -141,13 +141,10 @@ MAX_HISTORY=5
 ### FILTERS
 You may not want ani-man to consider every directory with a [valid](https://github.com/johndovern/ani-man#Valid-extensions) file in it as a show. I know I don't. For that reason you can set a list of filters that ani-man will apply when building your library by adding names to filter in the `ani-man.filters` file.
 
-The included filters file has some filters preset. These were all directories that I found no use to keep track of. You can remove or include whatever directories you like by simply writing the name of the directory in this file. The names will be split on newlines and tabs. Spaces are fine and you do not need to add quotes unless the directory you want to filter contains quotes.
+The included filters file has some filters preset. These were all directories that I found no use to keep track of. You can remove or include whatever directories you like by simply writing the name of the directory in this file. The names will be split on newlines. Spaces are fine and you do not need to add quotes unless the directory you want to filter contains quotes.
 
-**Please note**: the filters only apply to individual directories themselves and not their subdirectories.
-
-If you have a filter for `Extras` any directory named `Extras` will be filtered. However, if `Extras/More-extras` exists and has valid files inside of it, ani-man will not filter it. In this case ani-man sees `Extras/More-extras` as the last directory `More-extras`. You would need a filter for `More-extras` in order to filter this directory as well.
-
-I may look into optionally filtering subdirectories as well. However, my present attempts are ugly, and I am not confident in their reliability. I am happy to take suggestions for this; as well as, any optimizations or features anyone might have to suggest.
+### RECURSIVE
+You may optionally filter directories recursively. Simply set `RECURSIVE=1` in `ani-man.conf`. The default value is `0`.
 
 ### DEBUG
 By default ani-man sends progress notes and errors via notify-send. However, this can be changed by setting `DEBUG=1` in ani-man.conf. Alternatively you can use the `-d, --debug` flag to get this behavior on demand.
