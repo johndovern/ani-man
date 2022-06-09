@@ -4,6 +4,8 @@ export CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/ani-man"
 export LOG_FILE="${CONFIG_DIR}/ani-man.log"
 export LIBRARY="${CONFIG_DIR}/anime.txt"
 export EXTERNAL_CONF="${CONFIG_DIR}/ani-man.conf"
+export DIRS_FILE="${CONFIG_DIR}/.valid_dirs"
+export EPISODES_FILE="${CONFIG_DIR}/.valid_episodes"
 export FILTERS_LIST="${CONFIG_DIR}/ani-man.filters"
 
 active_create() {
@@ -52,6 +54,7 @@ auto_update() {
 }
 
 backup_library() {
+  send_prog -p "Backing up library"
   export LIBRARY_BAK="${LIBRARY}.bak"
   export LIBRARY_LOOP="${LIBRARY}.loop"
   readonly LIBRARY_BAK
@@ -67,7 +70,6 @@ build_library() {
     [[ "${ANS}" == "Yes" ]] && rm "${LIBRARY}" || return 1
     unset ANS
   fi
-  send_prog -p "Building library"
   while read -r DIR; do
     if [[ "${FILTERS[*]}" =~ "${DIR##*/}" ]]; then
       send_prog -e "Skipping" "${DIR##*/}"
@@ -78,9 +80,13 @@ build_library() {
     [[ "${RECURSIVE}" -eq 1 ]] && recursive_filter "${DIR}" && continue
     send_prog -p "Adding" "${DIR##*/}"
     ANIME_DIRS+=("${DIR##"${BASE_DIR}"/}")
-  done < <(find -L "${BASE_DIR}" -type f | \
-    sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d;s/\(^.*\)\/.*$/\1/g' | \
-    sort -u)
+  done < <(sed 's/\(^.*\)\/.*$/\1/g' "${DIRS_FILE}" | sort -u)
+}
+
+clean_up() {
+  [[ -e "${DIRS_FILE}" ]] && rm "${DIRS_FILE}"
+  [[ "${OPTIONS[*]}" =~ "CLEAN" ]] && rm "${LIBRARY_BAK}"
+  [[ "${OPERATION}" == "UPDATE" ]] && rm "${LIBRARY}" "${LIBRARY_LOOP}"
 }
 
 compare_libraries() {
@@ -110,6 +116,28 @@ compare_libraries() {
   done < "${LIBRARY}"
 }
 
+ep_search() {
+  while IFS='<' read -r DIR TITLE EP ; do
+    [[ ! -e "${BASE_DIR}/${DIR}/${TRACK##*/}" ]] && continue
+    FOUND=1
+    TRACK_DIR="${DIR}"
+    TRACK_EP="${TRACK##*/}"
+    break
+  done < "${LIBRARY}"
+}
+
+export_episodes() {
+  while read -r EPS; do
+    DIR="${EPS%/*}"
+    [[ "${FILTERS[*]}" =~ "${DIR##*/}" ]] && continue
+    [[ "${DIR}" == "${BASE_DIR}" ]] && continue
+    [[ "${DIR}" =~ \< ]] && continue
+    [[ "${RECURSIVE}" -eq 1 ]] && recursive_filter "${DIR}" && continue
+    EPISODES+=("${EPS}")
+  done < <(sort -u "${DIRS_FILE}")
+  printf '%s\n' "${EPISODES[@]}" > "${EPISODES_FILE}"
+}
+
 file_check() {
   [[ "${OPERATION}" == "SETUP" ]] && return 0
   [[ ! -e "${LOG_FILE}" ]] && touch "${LOG_FILE}"
@@ -125,14 +153,13 @@ file_check() {
 }
 
 find_ep() {
-  while IFS='<' read -r DIR TITLE EP ; do
-    [[ ! -e "${BASE_DIR}/${DIR}/${TRACK##*/}" ]] && continue
-    FOUND=1
-    TRACK_DIR="${DIR}"
-    TRACK_EP="${TRACK##*/}"
-    break
-  done < "${LIBRARY}"
-  [[ "${FOUND}" -eq 1 ]] && return 0 || return 1
+  grep -qF "${TRACK##*/}" "${EPISODES_FILE}" && FOUND=1 || FOUND=0
+  [[ "${FOUND}" -ne 1 ]] && return 1
+  DIR="$(grep -F "${TRACK##*/}" "${EPISODES_FILE}")"
+  DIR="${DIR#"${BASE_DIR}"/}"
+  TRACK_DIR="${DIR%/*}"
+  TRACK_EP="${TRACK##*/}"
+  return 0
 }
 
 get_eps() {
@@ -158,22 +185,32 @@ get_library() {
 }
 
 get_log_dirs() {
+  LOG_DIRS=()
+  LIBRARY_DIRS=()
+  LIBRARY_TITLES=()
+  LIBRARY_EPS=()
   while IFS='<' read -r NUM DIR; do
     LOG_DIRS+=("${DIR}")
   done < "${LOG_FILE}"
 }
 
 get_log_titles() {
-  L=0
-  while read -r LOG_DIR ; do
+  LOG_CHECK=0
+  for ((L=0; L < "${#LOG_DIRS[@]}"; L++)); do
+    FOUND=0
     while IFS='<' read -r DIR TITLE EP ; do
-      [[ ! "${LOG_DIR}" == "${DIR}" ]] && continue
+      [[ ! "${LOG_DIRS[${L}]}" == "${DIR}" ]] && continue
+      FOUND=1
       LIBRARY_DIRS+=("${DIR}")
       LIBRARY_TITLES+=("$(printf '%03d: ' "${L}")${TITLE}")
       LIBRARY_EPS+=("${EP}")
     done < "${LIBRARY}"
-    L=$((L+1))
-  done < <(printf '%s\n' "${LOG_DIRS[@]}")
+    [[ "${FOUND}" -eq 1 ]] && continue
+    LOG_CHECK=1
+    CLEAN_DIR="$(printf '%s' "${LOG_DIRS[${L}]}" | sed 's/\[\|\]\|\&/\\&/g')"
+    sed -i "\>${CLEAN_DIR}\$>d" "${LOG_FILE}"
+  done
+  [[ "${LOG_CHECK}" -eq 1 ]] && update_log
 }
 
 get_opts() {
@@ -255,57 +292,79 @@ get_opts() {
   done
 }
 
+get_valid_dirs() {
+  find -L "${BASE_DIR}" -type f | \
+    sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d' > "${DIRS_FILE}"
+}
+
+not_found() {
+  send_prog -e "Error" "Could not find" "${TRACK##*/}" "in your library." \
+    "Please update your library and try again"
+}
+
 opts_handler() {
   case "${OPERATION}" in
     BROWSE)
       setsid -f ${FILE_MANAGER:?File manager not set} "${BASE_DIR}" >/dev/null 2>&1
       ;;
     BUILD)
+      send_prog -p "Getting valid shows"
+      get_valid_dirs
+      export_episodes
       build_library || return 1
       if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
         active_create
       else
         auto_create
       fi
+      clean_up
       ;;
     OPEN)
       setsid -f mpv --script-opts=ani-man-enabled=yes "${OPEN}" >/dev/null 2>&1
       ;;
     SEARCH)
-      find_ep && return 0 || return 1
+      [[ -e "${EPISODES_FILE}" ]] && { find_ep && return 0 || return 1 ; }
+      [[ ! -e "${EPISODES_FILE}" ]] && { ep_search && return 0 || return 1 ; }
       ;;
     SETUP)
       setup_files
       ;;
     TRACK)
-      if ! find_ep ; then
-        send_prog -e "Error:" "Could not find" "    ${TRACK##*/}" "in your library." \
-          "Please update your library and try again"
-        return 1
+      if [[ -e "${EPISODES_FILE}" ]]; then
+        find_ep || { not_found ; return 1 ; }
+      else
+        ep_search || { not_found ; return 1 ; }
       fi
       update_hist
       [[ "${MAX_HISTORY}" -ne 0 ]] && update_log
       ;;
     UPDATE)
+      send_prog -p "Getting valid shows"
+      get_valid_dirs
       backup_library
+      send_prog -p "Searching for new shows"
       build_library >/dev/null 2>&1
       auto_create
       compare_libraries
-      rm "${LIBRARY}" "${LIBRARY_LOOP}"
+      send_prog -p "Saving new episodes"
+      export_episodes
+      clean_up
       if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
         active_update
       else
         auto_update
       fi
-      [[ "${OPTIONS[*]}" =~ "CLEAN" ]] && rm "${LIBRARY_BAK}"
       ;;
     WATCH)
       get_library
       watch_anime
       ;;
     WATCH_LATEST)
-      get_log_dirs
-      get_log_titles
+      LOG_CHECK=1
+      while [[ "${LOG_CHECK}" -eq 1 ]]; do
+        get_log_dirs
+        get_log_titles
+      done
       watch_anime
       ;;
   esac
@@ -345,13 +404,13 @@ send_prog() {
           shift
           FIRST="${1}"
           shift
-          notify-send -u critical "${FIRST}" "${@}"
+          notify-send -u critical "${FIRST}" "${*}"
           ;;
         -p)
           shift
           FIRST="${1}"
           shift
-          notify-send "${FIRST}" "$@"
+          notify-send "${FIRST}" "${*}"
           ;;
         *)
           notify-send -u critical "Error" "No option given"
@@ -378,14 +437,15 @@ update_hist() {
 }
 
 update_log() {
-  L=1
+  [[ -n "${TRACK_DIR}" ]] && L=1 || L=0
   while IFS='<' read -r NUM EP ; do
-    [[ "${NUM}" -eq "${MAX_HISTORY}" ]] && continue
+    [[ -n "${TRACK_DIR}" ]] && [[ "${NUM}" -eq "${MAX_HISTORY}" ]] && continue
     NEW_LOG+=("$((L+1))<${EP}")
     L=$((L+1))
   done < "${LOG_FILE}"
-  printf '%s\n' "1<${TRACK_DIR}" > "${LOG_FILE}"
-  printf '%s\n' "${NEW_LOG[@]}" >> "${LOG_FILE}"
+  [[ -n "${TRACK_DIR}" ]] && printf '%s\n' "1<${TRACK_DIR}" > "${LOG_FILE}"
+  [[ -n "${TRACK_DIR}" ]] && printf '%s\n' "${NEW_LOG[@]}" >> "${LOG_FILE}"
+  [[ -z "${TRACK_DIR}" ]] && printf '%s\n' "${NEW_LOG[@]}" > "${LOG_FILE}"
 }
 
 usage() {
@@ -458,7 +518,7 @@ watch_anime() {
   [[ "${PROMPT_CMD}" =~ "dmenu" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | dmenu -i -l 20 -p "Watch:")"
   [[ "${PROMPT_CMD}" =~ "fzf" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | fzf --prompt="Watch:")"
   if [[ -n "${WATCH}" ]]; then
-    WATCH_NUM="$(printf '%s' "${WATCH}" | sed 's/^0*\(.*\):.*$/\1/g')"
+    WATCH_NUM="$(printf '%s' "${WATCH}" | sed 's/^0\{1,2\}\?\(.*\):.*$/\1/g')"
     if [[ -z "${LIBRARY_EPS[${WATCH_NUM}]}" ]]; then
       get_eps
       [[ "${PROMPT_CMD}" =~ "dmenu" ]] && PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
