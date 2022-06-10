@@ -138,7 +138,8 @@ export_episodes() {
 }
 
 file_check() {
-  [[ "${OPERATION}" == "SETUP" ]] && return 0
+  [[ "${1}" == "-S" ]] && return 0
+  [[ "${1}" == "--setup" ]] && return 0
   [[ ! -e "${LOG_FILE}" ]] && touch "${LOG_FILE}"
   [[ -e "${EXTERNAL_CONF}" ]] && source "${EXTERNAL_CONF}"
   if [[ -z "${BASE_DIR}" ]]; then
@@ -528,8 +529,8 @@ main() {
   export G="\e[0;32m"
   export E="\e[0m"
 
-  get_opts "${@}" || return 1
   file_check || return 1
+  get_opts "${@}" || return 1
   opts_handler || return 1
 }
 
