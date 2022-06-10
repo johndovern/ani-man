@@ -17,6 +17,7 @@ active_create() {
     [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
     printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<" >> "${LIBRARY}"
   done 3<&0 < <(printf '%s\n' "${ANIME_DIRS[@]}")
+  return 0
 }
 
 auto_create() {
@@ -33,17 +34,15 @@ active_update() {
     DIR="${ANIME_DIRS[${L}]}"
     TITLE="${ANIME_TITLES[${L}]}"
     EP="${ANIME_EPS[${L}]}"
-    if [[ -z "${TITLE}" ]]; then
-      AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
-      DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${AUTO_TITLE}"
-      [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
-      [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -p "Title: " TITLE
-      [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
-        printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
-    else
-      printf '%s\n' "${DIR}<${TITLE}<${EP}" >> "${LIBRARY}"
-    fi
+    [[ -n "${TITLE}" ]] && printf '%s\n' "${DIR}<${TITLE}<${EP}" >> "${LIBRARY}" && continue
+    AUTO_TITLE="$(printf '%s' "${DIR//\// - }" | sed 's/\s\+\?\[[^]]*\]\s\+\?//g')"
+    DEBUG=1 send_prog -p "DIR:" "    ${DIR}" "Auto title:" "    ${AUTO_TITLE}"
+    [[ "${PROMPT_CMD}" =~ "dmenu" ]] && TITLE="$(dmenu -i -p "Title:" <<<'')"
+    [[ "${PROMPT_CMD}" =~ "fzf" ]] && read -r -p "Title: " TITLE
+    [[ -z "${TITLE}" ]] && TITLE="${AUTO_TITLE}"
+    printf '%s\n' "${DIR}<${TITLE//[\!\\@#$%^&*\{\}\/<>?\'\":+\`|=]/-}<${EP}" >> "${LIBRARY}"
   done
+  return 0
 }
 
 auto_update() {
@@ -57,7 +56,7 @@ backup_library() {
   send_prog -p "Backing up library"
   export LIBRARY_BAK="${LIBRARY}.bak"
   export LIBRARY_LOOP="${LIBRARY}.loop"
-  readonly LIBRARY_BAK
+  readonly LIBRARY_BAK LIBRARY_LOOP
   [[ -e "${LIBRARY_BAK}" ]] && rm "${LIBRARY_BAK}"
   mv "${LIBRARY}" "${LIBRARY_BAK}"
   cp "${LIBRARY_BAK}" "${LIBRARY_LOOP}"
@@ -106,13 +105,12 @@ compare_libraries() {
       break
     done < "${LIBRARY_LOOP}"
     [[ "${MATCH}" -eq 1 ]] && sed -i "\>${CLEAN_DIR}<>d" "${LIBRARY_LOOP}"
-    if [[ "${MATCH}" -eq 0 ]]; then
-        ANIME_DIRS+=("${DIR}")
-        [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]] && \
-          ANIME_TITLES+=("") || \
-          ANIME_TITLES+=("${TITLE}")
-        ANIME_EPS+=("${EP}")
-    fi
+    [[ "${MATCH}" -eq 1 ]] && continue
+    ANIME_DIRS+=("${DIR}")
+    [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]] && \
+      ANIME_TITLES+=("") || \
+      ANIME_TITLES+=("${TITLE}")
+    ANIME_EPS+=("${EP}")
   done < "${LIBRARY}"
 }
 
@@ -124,6 +122,7 @@ ep_search() {
     TRACK_EP="${TRACK##*/}"
     break
   done < "${LIBRARY}"
+  [[ "${FOUND}" -eq 1 ]] && return 0 || return 1
 }
 
 export_episodes() {
@@ -147,15 +146,19 @@ file_check() {
     return 1
   fi
   [[ ! "fzf dmenu" =~ "${PROMPT_CMD}" ]] && PROMPT_CMD="dmenu"
-  [[ -e "${FILTERS_LIST}" ]] && get_filters
+  [[ "UPDATE BUILD" =~ "${OPERATION}" ]] && [[ -e "${FILTERS_LIST}" ]] && get_filters
   readonly BASE_DIR LIBRARY LOG_FILE CONFIG_DIR EXTERNAL_CONF FILTERS_LIST
   return 0
 }
 
+file_search() {
+  [[ -e "${EPISODES_FILE}" ]] && find_ep || ep_search
+  return "$?"
+}
+
 find_ep() {
-  grep -qF "${TRACK##*/}" "${EPISODES_FILE}" && FOUND=1 || FOUND=0
-  [[ "${FOUND}" -ne 1 ]] && return 1
   DIR="$(grep -F "${TRACK##*/}" "${EPISODES_FILE}")"
+  [[ "$?" -eq 0 ]] && FOUND=1 || return 1
   DIR="${DIR#"${BASE_DIR}"/}"
   TRACK_DIR="${DIR%/*}"
   TRACK_EP="${TRACK##*/}"
@@ -185,6 +188,7 @@ get_library() {
 }
 
 get_log_dirs() {
+  EMPTY_LOG=0
   LOG_DIRS=()
   LIBRARY_DIRS=()
   LIBRARY_TITLES=()
@@ -192,20 +196,20 @@ get_log_dirs() {
   while IFS='<' read -r NUM DIR; do
     LOG_DIRS+=("${DIR}")
   done < "${LOG_FILE}"
+  [[ -z "${LOG_DIRS[@]}" ]] && EMPTY_LOG=1 && return 1 || return 0
 }
 
 get_log_titles() {
   LOG_CHECK=0
-  for ((L=0; L < "${#LOG_DIRS[@]}"; L++)); do
-    FOUND=0
-    while IFS='<' read -r DIR TITLE EP ; do
-      [[ ! "${LOG_DIRS[${L}]}" == "${DIR}" ]] && continue
-      FOUND=1
-      LIBRARY_DIRS+=("${DIR}")
-      LIBRARY_TITLES+=("$(printf '%03d: ' "${L}")${TITLE}")
-      LIBRARY_EPS+=("${EP}")
-    done < "${LIBRARY}"
-    [[ "${FOUND}" -eq 1 ]] && continue
+  for ((L=0 ; L < "${#LOG_DIRS[@]}"; L++)); do
+    DIR="$(grep -F "${LOG_DIRS[${L}]}<" "${LIBRARY}")"
+    [[ "$?" -eq 0 ]] && {
+      LIBRARY_DIRS+=("${DIR%%<*}")
+      LIBRARY_EPS+=("${DIR##*<}")
+      DIR="${DIR#*<}"
+      LIBRARY_TITLES+=("$(printf '%03d: ' "${L}")${DIR%<*}")
+      continue
+    }
     LOG_CHECK=1
     CLEAN_DIR="$(printf '%s' "${LOG_DIRS[${L}]}" | sed 's/\[\|\]\|\&/\\&/g')"
     sed -i "\>${CLEAN_DIR}\$>d" "${LOG_FILE}"
@@ -248,17 +252,14 @@ get_opts() {
         -o|--open)
           OPERATION="OPEN"
           shift
-          if [[ -n "${1}" ]]; then
-            OPEN="${1}"
-            shift
-          else
-            usage
-            return 1
-          fi
+          [[ -z "${1}" ]] && { usage ; return 1 ; }
+          OPEN="${1}"
+          shift
           ;;
         -s|--search)
           OPERATION="SEARCH"
           shift
+          [[ -z "${1}" ]] && { usage ; return 1 ; }
           TRACK="${1}"
           shift
           ;;
@@ -269,6 +270,7 @@ get_opts() {
         -t|--track)
           OPERATION="TRACK"
           shift
+          [[ -z "${1}" ]] && { usage ; return 1 ; }
           TRACK="${1}"
           shift
           ;;
@@ -293,11 +295,13 @@ get_opts() {
 }
 
 get_valid_dirs() {
+  send_prog -p "Getting valid shows"
   find -L "${BASE_DIR}" -type f | \
     sed '/^.*\.\(mkv\|mp4\|mpg\|mp2\|mpeg\|mpe\|mpv\|ogg\|webm\|m4p\|m4v\|avi\|wmv\|mov\|qt\|flv\|swf\|avchd\)$/!d' > "${DIRS_FILE}"
 }
 
 not_found() {
+  [[ "${NOT_FOUND}" -eq 0 ]] && return 0
   send_prog -e "Error" "Could not find" "${TRACK##*/}" "in your library." \
     "Please update your library and try again"
 }
@@ -308,52 +312,36 @@ opts_handler() {
       setsid -f ${FILE_MANAGER:?File manager not set} "${BASE_DIR}" >/dev/null 2>&1
       ;;
     BUILD)
-      send_prog -p "Getting valid shows"
       get_valid_dirs
       export_episodes
       build_library || return 1
-      if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
-        active_create
-      else
-        auto_create
-      fi
+      [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]] && active_create || auto_create
       clean_up
       ;;
     OPEN)
       setsid -f mpv --script-opts=ani-man-enabled=yes "${OPEN}" >/dev/null 2>&1
       ;;
     SEARCH)
-      [[ -e "${EPISODES_FILE}" ]] && { find_ep && return 0 || return 1 ; }
-      [[ ! -e "${EPISODES_FILE}" ]] && { ep_search && return 0 || return 1 ; }
+      file_search && return 0 || return 1
       ;;
     SETUP)
       setup_files
       ;;
     TRACK)
-      if [[ -e "${EPISODES_FILE}" ]]; then
-        find_ep || { not_found ; return 1 ; }
-      else
-        ep_search || { not_found ; return 1 ; }
-      fi
+      file_search || { not_found ; return 1 ; }
       update_hist
       [[ "${MAX_HISTORY}" -ne 0 ]] && update_log
       ;;
     UPDATE)
-      send_prog -p "Getting valid shows"
       get_valid_dirs
       backup_library
       send_prog -p "Searching for new shows"
       build_library >/dev/null 2>&1
       auto_create
       compare_libraries
-      send_prog -p "Saving new episodes"
       export_episodes
       clean_up
-      if [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]]; then
-        active_update
-      else
-        auto_update
-      fi
+      [[ "${OPTIONS[*]}" =~ "INTERACTIVE" ]] && active_update || auto_update
       ;;
     WATCH)
       get_library
@@ -362,9 +350,10 @@ opts_handler() {
     WATCH_LATEST)
       LOG_CHECK=1
       while [[ "${LOG_CHECK}" -eq 1 ]]; do
-        get_log_dirs
+        get_log_dirs || break
         get_log_titles
       done
+      [[ "${EMPTY_LOG}" -eq 1 ]] && return 1
       watch_anime
       ;;
   esac
@@ -375,7 +364,7 @@ recursive_filter() {
   while IFS="" read -r FILTER ; do
     [[ "${1}" =~ "/${FILTER}/" ]] && SKIP=1 && break
   done < <(printf '%s\n' "${FILTERS[@]}")
-  [[ "${SKIP}" -eq 1 ]] && send_prog -e "Skipping" "${1##${BASE_DIR}/}" && return 0
+  [[ "${SKIP}" -eq 1 ]] && send_prog -e "Skipping" "${1##"${BASE_DIR}"/}" && return 0
   [[ "${SKIP}" -eq 0 ]] && return 1
 }
 
@@ -440,10 +429,11 @@ update_log() {
   [[ -n "${TRACK_DIR}" ]] && L=1 || L=0
   while IFS='<' read -r NUM EP ; do
     [[ -n "${TRACK_DIR}" ]] && [[ "${NUM}" -eq "${MAX_HISTORY}" ]] && continue
+    [[ -z "${EP}" ]] && continue
     NEW_LOG+=("$((L+1))<${EP}")
     L=$((L+1))
   done < "${LOG_FILE}"
-  [[ -n "${TRACK_DIR}" ]] && printf '%s\n' "1<${TRACK_DIR}" > "${LOG_FILE}"
+  [[ -n "${TRACK_DIR}" ]] && printf '%s' "1<${TRACK_DIR}" > "${LOG_FILE}"
   [[ -n "${TRACK_DIR}" ]] && printf '%s\n' "${NEW_LOG[@]}" >> "${LOG_FILE}"
   [[ -z "${TRACK_DIR}" ]] && printf '%s\n' "${NEW_LOG[@]}" > "${LOG_FILE}"
 }
@@ -518,7 +508,7 @@ watch_anime() {
   [[ "${PROMPT_CMD}" =~ "dmenu" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | dmenu -i -l 20 -p "Watch:")"
   [[ "${PROMPT_CMD}" =~ "fzf" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | fzf --prompt="Watch:")"
   if [[ -n "${WATCH}" ]]; then
-    WATCH_NUM="$(printf '%s' "${WATCH}" | sed 's/^0\{1,2\}\?\(.*\):.*$/\1/g')"
+    WATCH_NUM="$(printf '%s' "${WATCH}" | sed 's/^0\{1,2\}\?\(.[^:]\).*$/\1/g')"
     if [[ -z "${LIBRARY_EPS[${WATCH_NUM}]}" ]]; then
       get_eps
       [[ "${PROMPT_CMD}" =~ "dmenu" ]] && PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
