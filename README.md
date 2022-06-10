@@ -146,6 +146,9 @@ The included filters file has some filters preset. These were all directories th
 ### RECURSIVE
 You may optionally filter directories recursively. Simply set `RECURSIVE=1` in `ani-man.conf`. The default value is `0`.
 
+### NOT_FOUND
+You may set `NOT_FOUND=0` if you do not want to recieve a notice when tracking fails. This may be useful if you've enabled `ani-man.lua` by default.
+
 ### DEBUG
 By default ani-man sends progress notes and errors via notify-send. However, this can be changed by setting `DEBUG=1` in ani-man.conf. Alternatively you can use the `-d, --debug` flag to get this behavior on demand.
 
