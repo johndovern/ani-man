@@ -8,7 +8,7 @@ options.read_options(o, "ani-man")
 
 local function ani_scan()
   local trackPath = mp.get_property_native("path")
-  if os.execute("ani-man -s \"" .. trackPath .. "\"") then
+  if os.execute("ani-man -s \"" .. trackPath .. "\"") == 0 then
     os.execute("ani-man -t \"" .. trackPath .. "\"")
     mp.osd_message("ani-man: Library updated")
   end
