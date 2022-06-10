@@ -434,7 +434,7 @@ update_log() {
     NEW_LOG+=("$((L+1))<${EP}")
     L=$((L+1))
   done < "${LOG_FILE}"
-  [[ -n "${TRACK_DIR}" ]] && printf '%s' "1<${TRACK_DIR}" > "${LOG_FILE}"
+  [[ -n "${TRACK_DIR}" ]] && printf '%s\n' "1<${TRACK_DIR}" > "${LOG_FILE}"
   [[ -n "${TRACK_DIR}" ]] && printf '%s\n' "${NEW_LOG[@]}" >> "${LOG_FILE}"
   [[ -z "${TRACK_DIR}" ]] && printf '%s\n' "${NEW_LOG[@]}" > "${LOG_FILE}"
 }
@@ -510,6 +510,7 @@ watch_anime() {
   [[ "${PROMPT_CMD}" =~ "fzf" ]] && WATCH="$(printf '%s\n' "${LIBRARY_TITLES[@]}" | fzf --prompt="Watch:")"
   if [[ -n "${WATCH}" ]]; then
     WATCH_NUM="$(printf '%s' "${WATCH}" | sed 's/^0\{1,2\}\?\([0-9]\+\):.*$/\1/g')"
+    printf '%s\n' "${WATCH_NUM}"
     if [[ -z "${LIBRARY_EPS[${WATCH_NUM}]}" ]]; then
       get_eps
       [[ "${PROMPT_CMD}" =~ "dmenu" ]] && PICK_EP="$(printf '%s\n' "${PICK_EPS[@]}" | dmenu -i -l 20 -p "Watch:")"
